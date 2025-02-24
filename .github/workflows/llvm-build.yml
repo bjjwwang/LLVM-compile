@@ -1,4 +1,4 @@
-name: Build LLVM from Source
+name: Build LLVM with Docker
 
 on:
   push:
@@ -11,134 +11,41 @@ on:
 
 jobs:
   build:
-    name: Build LLVM on ${{ matrix.os }} for ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+    name: Build LLVM on ${{ matrix.arch }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ubuntu-18.04, ubuntu-20.04, ubuntu-24.04]
         arch: [x86_64, aarch64]
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Set up QEMU for Docker
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build LLVM using Docker
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          platforms: linux/${{ matrix.arch }}
+          tags: llvm-build:${{ matrix.arch }}
+
+      - name: Extract LLVM Build Output
         run: |
-          echo "Installing dependencies..."
-          sudo apt update
-
-          UBUNTU_VERSION=$(lsb_release -rs)
-          echo "Detected Ubuntu Version: $UBUNTU_VERSION"
-
-          if [[ "$UBUNTU_VERSION" == "24.04" ]]; then
-            sudo apt install -y build-essential libncurses6 libncurses-dev cmake zlib1g-dev ninja-build unzip curl wget python3 git
-          else
-            sudo apt install -y build-essential libncurses5 libncurses-dev cmake zlib1g-dev ninja-build unzip curl wget python3 git
-          fi
-
-          if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
-            sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          fi
-
-      - name: Set Environment Variables
-        run: |
-          echo "Setting up environment variables..."
-          echo "SCRIPT_DIR=$(pwd)" >> $GITHUB_ENV
-          echo "SVFHOME=$(pwd)" >> $GITHUB_ENV
-          echo "sysOS=$(uname -s)" >> $GITHUB_ENV
-          echo "arch=$(uname -m)" >> $GITHUB_ENV
-          echo "MajorLLVMVer=16" >> $GITHUB_ENV
-          echo "LLVMVer=16.0.4" >> $GITHUB_ENV
-          echo "LLVMHome=llvm-16.0.0.obj" >> $GITHUB_ENV
-          echo "SourceLLVM=https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-16.0.4.zip" >> $GITHUB_ENV
-          echo "jobs=$(nproc)" >> $GITHUB_ENV
-
-      - name: Verify Environment Variables
-        run: |
-          echo "Checking environment variables..."
-          echo "LLVMHome=$LLVMHome"
-          if [[ -z "$LLVMHome" ]]; then
-              echo "Error: LLVMHome is empty!"
-              exit 1
-          fi
-
-      - name: Run `build_llvm_from_source`
-        run: |
-          set -e  # 遇到错误立即退出
-
-          echo "LLVMHome before mkdir: $LLVMHome"
-          if [[ -z "$LLVMHome" ]]; then
-              echo "Error: LLVMHome is empty!"
-              exit 1
-          fi
-
-          mkdir -p "$LLVMHome"
-
-          echo "Downloading LLVM source..."
-          if [[ ! -f "llvm.zip" ]]; then
-              curl -L --retry 5 --retry-delay 5 "$SourceLLVM" -o llvm.zip || wget -c "$SourceLLVM" -O llvm.zip
-          fi
-
-          echo "Checking LLVM zip integrity..."
-          if [[ $(stat -c%s llvm.zip) -lt 100000 ]]; then
-              echo "Error: llvm.zip is too small! Possible 404 error!"
-              file llvm.zip
-              exit 1
-          fi
-
-          echo "Extracting LLVM source..."
-          mkdir -p llvm-source
-          unzip -q llvm.zip -d llvm-source
-
-          LLVM_SRC_DIR=$(find llvm-source -maxdepth 1 -type d -name "llvm-project-*")
-          if [[ -z "$LLVM_SRC_DIR" ]]; then
-              echo "Error: LLVM source directory not found!"
-              ls -R llvm-source
-              exit 1
-          fi
-
-          EXPECTED_DIR="llvm-source/llvm-project-${LLVMVer}"
-          if [[ "$LLVM_SRC_DIR" != "$EXPECTED_DIR" ]]; then
-              echo "Renaming LLVM source directory..."
-              mv "$LLVM_SRC_DIR" "$EXPECTED_DIR"
-          fi
-
-          if [[ ! -d "$EXPECTED_DIR/llvm" ]]; then
-              echo "Error: LLVM source directory '$EXPECTED_DIR/llvm' not found!"
-              ls -R "$EXPECTED_DIR"
-              exit 1
-          fi
-
-          echo "LLVM source directory is ready: $EXPECTED_DIR"
-
-          echo "Building LLVM..."
-          mkdir -p llvm-build
-          cd llvm-build
-          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_INSTALL_PREFIX="$SVFHOME/$LLVMHome" \
-                -DLLVM_ENABLE_PROJECTS="clang" \
-                -DLLVM_ENABLE_RTTI=ON \
-                -DBUILD_SHARED_LIBS=ON \
-                "$SVFHOME/$EXPECTED_DIR/llvm"
-          cmake --build . --parallel ${jobs}
-          cmake --install .
-
-          cd "$SVFHOME"
-          rm -rf llvm.zip llvm-source llvm-build
-
-      - name: Package LLVM
-        run: |
-          echo "Packaging LLVM..."
-          OS_VERSION=$(lsb_release -rs)
-          ARCH=${{ matrix.arch }}
-          ZIP_NAME="llvm-16-ubuntu${OS_VERSION}-${ARCH}.zip"
-          mv llvm-16.0.0.obj llvm-16
-          zip -r $ZIP_NAME llvm-16
-          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+          docker create --name llvm-container llvm-build:${{ matrix.arch }}
+          docker cp llvm-container:/output llvm-16-${{ matrix.arch }}
+          docker rm llvm-container
+          zip -r llvm-16-${{ matrix.arch }}.zip llvm-16-${{ matrix.arch }}
 
       - name: Upload LLVM Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llvm-${{ env.ZIP_NAME }}
-          path: ${{ env.ZIP_NAME }}
+          name: llvm-16-${{ matrix.arch }}.zip
+          path: llvm-16-${{ matrix.arch }}.zip
           retention-days: 7
