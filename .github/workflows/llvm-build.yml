@@ -34,7 +34,17 @@ jobs:
           file: ./Dockerfile
           push: false
           platforms: linux/${{ matrix.arch }}
+          load: true  # 关键修复，确保 buildx 结果可用
           tags: llvm-build:${{ matrix.arch }}
+
+      - name: Verify Docker Image Exists
+        run: |
+          echo "Checking if llvm-build:${{ matrix.arch }} exists..."
+          docker images
+          if ! docker images | grep -q "llvm-build"; then
+              echo "Error: llvm-build:${{ matrix.arch }} was not built!"
+              exit 1
+          fi
 
       - name: Extract LLVM Build Output
         run: |
