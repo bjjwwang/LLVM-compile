@@ -46,13 +46,20 @@ jobs:
           set -e
           echo "Downloading LLVM source..."
           if [[ ! -f "llvm.zip" ]]; then
-              curl -L "$SourceLLVM" -o llvm.zip || wget -c "$SourceLLVM" -O llvm.zip
+              curl -L --retry 5 --retry-delay 5 "$SourceLLVM" -o llvm.zip || wget -c "$SourceLLVM" -O llvm.zip
+          fi
+
+          # 下载失败就报错
+          if [[ ! -s llvm.zip ]]; then
+              echo "Error: llvm.zip download failed or is empty!"
+              ls -l llvm.zip
+              exit 1
           fi
 
           echo "Extracting LLVM source (silent mode)..."
           rm -rf llvm-source
           mkdir llvm-source
-          unzip -q llvm.zip -d llvm-source
+          unzip -q llvm.zip -d llvm-source || { echo "Error: Failed to unzip LLVM!"; exit 1; }
 
           echo "Finding LLVM source directory..."
           LLVM_SRC_DIR=$(find llvm-source -maxdepth 1 -type d -name "llvm-project-*")
