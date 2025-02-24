@@ -26,7 +26,18 @@ jobs:
         run: |
           echo "Installing dependencies..."
           sudo apt update
-          sudo apt install -y build-essential libncurses5 libncurses-dev cmake zlib1g-dev ninja-build unzip curl wget python3 git
+
+          # 检测 Ubuntu 版本
+          UBUNTU_VERSION=$(lsb_release -rs)
+          echo "Detected Ubuntu Version: $UBUNTU_VERSION"
+
+          # Ubuntu 24.04 用 libncurses6，其它版本用 libncurses5
+          if [[ "$UBUNTU_VERSION" == "24.04" ]]; then
+            sudo apt install -y build-essential libncurses6 libncurses-dev cmake zlib1g-dev ninja-build unzip curl wget python3 git
+          else
+            sudo apt install -y build-essential libncurses5 libncurses-dev cmake zlib1g-dev ninja-build unzip curl wget python3 git
+          fi
+
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
             sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
           fi
