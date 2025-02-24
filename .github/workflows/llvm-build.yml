@@ -33,8 +33,9 @@ jobs:
       - name: Set Environment Variables
         run: |
           echo "MajorLLVMVer=16" >> $GITHUB_ENV
+          echo "LLVMVer=16.0.4" >> $GITHUB_ENV
           echo "LLVMHome=llvm-${MajorLLVMVer}.0.0.obj" >> $GITHUB_ENV
-          echo "SourceLLVM=https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-16.0.0.zip" >> $GITHUB_ENV
+          echo "SourceLLVM=https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-${LLVMVer}.zip" >> $GITHUB_ENV
           echo "SVFHOME=$PWD" >> $GITHUB_ENV
           echo "jobs=$(nproc)" >> $GITHUB_ENV
 
@@ -42,7 +43,7 @@ jobs:
         run: |
           set -e
           LLVMHome="llvm-${MajorLLVMVer}.0.0.obj"
-          SourceLLVM="https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-16.0.0.zip"
+          SourceLLVM="https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-${LLVMVer}.zip"
 
           function generic_download_file {
               if [[ $# -ne 2 ]]; then
@@ -51,7 +52,7 @@ jobs:
               fi
 
               if [[ -f "$2" ]]; then
-                  echo "File $2 exists, skip download..."
+                  echo "File $2 exists, skipping download..."
                   return
               fi
 
@@ -77,15 +78,24 @@ jobs:
           }
 
           function build_llvm_from_source {
-              mkdir "$LLVMHome"
+              mkdir -p "$LLVMHome"
               echo "Downloading LLVM source..."
               generic_download_file "$SourceLLVM" llvm.zip
               echo "Unzipping LLVM source..."
-              mkdir llvm-source
+              mkdir -p llvm-source
               unzip llvm.zip -d llvm-source
 
+              # 自动获取解压后的目录
+              LLVM_SRC_DIR=$(find llvm-source -maxdepth 1 -type d -name "llvm-project-*")
+              if [[ -z "$LLVM_SRC_DIR" ]]; then
+                  echo "Error: LLVM source directory not found!"
+                  exit 1
+              fi
+
+              echo "LLVM source directory: $LLVM_SRC_DIR"
+
               echo "Building LLVM..."
-              mkdir llvm-build
+              mkdir -p llvm-build
               cd llvm-build
               cmake -G Ninja -DCMAKE_BUILD_TYPE=Release \
                     -DCMAKE_INSTALL_PREFIX="$SVFHOME/$LLVMHome" \
@@ -93,12 +103,12 @@ jobs:
                     -DLLVM_ENABLE_RTTI=ON \
                     -DBUILD_SHARED_LIBS=ON \
                     -DLLVM_TARGETS_TO_BUILD="X86;AArch64" \
-                    ../llvm-source/llvm-project-16.0.0/llvm
+                    "$LLVM_SRC_DIR/llvm"
               cmake --build . --parallel ${jobs}
               cmake --install .
 
               cd ..
-              rm -r llvm-source llvm-build llvm.zip
+              rm -rf llvm-source llvm-build llvm.zip
           }
 
           build_llvm_from_source
@@ -117,4 +127,4 @@ jobs:
         with:
           name: llvm-${{ env.ZIP_NAME }}
           path: ${{ env.ZIP_NAME }}
-          retention-days: 3
+          retention-days: 7
