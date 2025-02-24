@@ -43,17 +43,24 @@ jobs:
       - name: Set Environment Variables
         run: |
           echo "Setting up environment variables..."
-          echo "export SCRIPT_DIR=$(pwd)" >> $GITHUB_ENV
-          echo "export SVFHOME=$(pwd)" >> $GITHUB_ENV
-          echo "export sysOS=$(uname -s)" >> $GITHUB_ENV
-          echo "export arch=$(uname -m)" >> $GITHUB_ENV
-          echo "export MajorLLVMVer=16" >> $GITHUB_ENV
-          echo "export LLVMVer=16.0.4" >> $GITHUB_ENV
-          echo "export LLVMHome=llvm-${MajorLLVMVer}.0.0.obj" >> $GITHUB_ENV
-          echo "export SourceLLVM=https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-${LLVMVer}.zip" >> $GITHUB_ENV
-          echo "export jobs=$(nproc)" >> $GITHUB_ENV
+          echo "SCRIPT_DIR=$(pwd)" >> $GITHUB_ENV
+          echo "SVFHOME=$(pwd)" >> $GITHUB_ENV
+          echo "sysOS=$(uname -s)" >> $GITHUB_ENV
+          echo "arch=$(uname -m)" >> $GITHUB_ENV
+          echo "MajorLLVMVer=16" >> $GITHUB_ENV
+          echo "LLVMVer=16.0.4" >> $GITHUB_ENV
+          echo "LLVMHome=llvm-16.0.0.obj" >> $GITHUB_ENV
+          echo "SourceLLVM=https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-16.0.4.zip" >> $GITHUB_ENV
+          echo "jobs=$(nproc)" >> $GITHUB_ENV
 
-          echo "LLVMHome is set to: $LLVMHome"
+      - name: Verify Environment Variables
+        run: |
+          echo "Checking environment variables..."
+          echo "LLVMHome=$LLVMHome"
+          if [[ -z "$LLVMHome" ]]; then
+              echo "Error: LLVMHome is empty!"
+              exit 1
+          fi
 
       - name: Run `build_llvm_from_source`
         run: |
