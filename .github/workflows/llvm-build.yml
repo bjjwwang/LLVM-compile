@@ -41,77 +41,69 @@ jobs:
 
       - name: Download and Build LLVM
         run: |
-          set -e
+          set -e  # 遇到错误立即退出
+
           LLVMHome="llvm-${MajorLLVMVer}.0.0.obj"
           SourceLLVM="https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-${LLVMVer}.zip"
 
-          function generic_download_file {
-              if [[ $# -ne 2 ]]; then
-                  echo "$0: bad args to generic_download_file!"
-                  exit 1
-              fi
+          function download_and_extract {
+              local url="$1"
+              local output="$2"
+              local folder="$3"
 
-              if [[ -f "$2" ]]; then
-                  echo "File $2 exists, skipping download..."
-                  return
-              fi
-
-              local download_failed=false
-              if type curl &> /dev/null; then
-                  if ! curl -L "$1" -o "$2"; then
-                      download_failed=true
-                  fi
-              elif type wget &> /dev/null; then
-                  if ! wget -c "$1" -O "$2"; then
-                      download_failed=true
-                  fi
+              if [[ -f "$output" ]]; then
+                  echo "File $output exists, skipping download..."
               else
-                  echo "Cannot find download tool. Please install curl or wget."
-                  exit 1
+                  echo "Downloading $url..."
+                  curl -L "$url" -o "$output" || wget -c "$url" -O "$output"
               fi
 
-              if $download_failed; then
-                  echo "Failed to download $1"
-                  rm -f "$2"
-                  exit 1
+              if [[ -d "$folder" ]]; then
+                  echo "Folder $folder exists, skipping extraction..."
+              else
+                  echo "Extracting $output..."
+                  mkdir -p "$folder"
+                  unzip "$output" -d "$folder"
               fi
           }
 
-          function build_llvm_from_source {
-              mkdir -p "$LLVMHome"
-              echo "Downloading LLVM source..."
-              generic_download_file "$SourceLLVM" llvm.zip
-              echo "Unzipping LLVM source..."
-              mkdir -p llvm-source
-              unzip llvm.zip -d llvm-source
+          echo "Downloading and extracting LLVM source..."
+          download_and_extract "$SourceLLVM" "llvm.zip" "llvm-source"
 
-              # 自动获取解压后的目录
-              LLVM_SRC_DIR=$(find llvm-source -maxdepth 1 -type d -name "llvm-project-*")
-              if [[ -z "$LLVM_SRC_DIR" ]]; then
-                  echo "Error: LLVM source directory not found!"
-                  exit 1
-              fi
+          # 统一 LLVM 目录格式，确保路径正确
+          LLVM_SRC_DIR=$(find llvm-source -maxdepth 1 -type d -name "llvm-project-*")
+          if [[ -z "$LLVM_SRC_DIR" ]]; then
+              echo "Error: LLVM source directory not found!"
+              ls -R llvm-source
+              exit 1
+          fi
+          LLVM_SRC_DIR=$(basename "$LLVM_SRC_DIR") # 只保留文件夹名
+          LLVM_SRC_DIR="llvm-source/$LLVM_SRC_DIR" # 确保路径一致
 
-              echo "LLVM source directory: $LLVM_SRC_DIR"
+          # 确保 CMake 能找到 llvm 目录
+          if [[ ! -d "$LLVM_SRC_DIR/llvm" ]]; then
+              echo "Error: LLVM source directory '$LLVM_SRC_DIR/llvm' not found!"
+              ls -R "$LLVM_SRC_DIR"
+              exit 1
+          fi
 
-              echo "Building LLVM..."
-              mkdir -p llvm-build
-              cd llvm-build
-              cmake -G Ninja -DCMAKE_BUILD_TYPE=Release \
-                    -DCMAKE_INSTALL_PREFIX="$SVFHOME/$LLVMHome" \
-                    -DLLVM_ENABLE_PROJECTS="clang" \
-                    -DLLVM_ENABLE_RTTI=ON \
-                    -DBUILD_SHARED_LIBS=ON \
-                    -DLLVM_TARGETS_TO_BUILD="X86;AArch64" \
-                    "$LLVM_SRC_DIR/llvm"
-              cmake --build . --parallel ${jobs}
-              cmake --install .
+          echo "LLVM source directory: $LLVM_SRC_DIR"
 
-              cd ..
-              rm -rf llvm-source llvm-build llvm.zip
-          }
+          echo "Building LLVM..."
+          mkdir -p llvm-build
+          cd llvm-build
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX="$SVFHOME/$LLVMHome" \
+                -DLLVM_ENABLE_PROJECTS="clang" \
+                -DLLVM_ENABLE_RTTI=ON \
+                -DBUILD_SHARED_LIBS=ON \
+                -DLLVM_TARGETS_TO_BUILD="X86;AArch64" \
+                "$PWD/$LLVM_SRC_DIR/llvm"  # **这里确保路径正确**
+          cmake --build . --parallel ${jobs}
+          cmake --install .
 
-          build_llvm_from_source
+          cd ..
+          rm -rf llvm.zip llvm-source llvm-build
 
       - name: Package LLVM
         run: |
