@@ -27,11 +27,9 @@ jobs:
           echo "Installing dependencies..."
           sudo apt update
 
-          # 检测 Ubuntu 版本
           UBUNTU_VERSION=$(lsb_release -rs)
           echo "Detected Ubuntu Version: $UBUNTU_VERSION"
 
-          # Ubuntu 24.04 用 libncurses6，其它版本用 libncurses5
           if [[ "$UBUNTU_VERSION" == "24.04" ]]; then
             sudo apt install -y build-essential libncurses6 libncurses-dev cmake zlib1g-dev ninja-build unzip curl wget python3 git
           else
@@ -55,10 +53,20 @@ jobs:
           echo "export SourceLLVM=https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-${LLVMVer}.zip" >> $GITHUB_ENV
           echo "export jobs=$(nproc)" >> $GITHUB_ENV
 
+          echo "LLVMHome is set to: $LLVMHome"
+
       - name: Run `build_llvm_from_source`
         run: |
           set -e  # 遇到错误立即退出
+
+          echo "LLVMHome before mkdir: $LLVMHome"
+          if [[ -z "$LLVMHome" ]]; then
+              echo "Error: LLVMHome is empty!"
+              exit 1
+          fi
+
           mkdir -p "$LLVMHome"
+
           echo "Downloading LLVM source..."
           if [[ ! -f "llvm.zip" ]]; then
               curl -L --retry 5 --retry-delay 5 "$SourceLLVM" -o llvm.zip || wget -c "$SourceLLVM" -O llvm.zip
