@@ -46,13 +46,10 @@ jobs:
           set -e
           echo "Downloading LLVM source..."
           
-          # 先删除旧的 llvm.zip，避免影响
-          rm -f llvm.zip
-
-          # 下载 LLVM ZIP
+          rm -f llvm.zip  # 先删除旧文件，避免影响
           curl -L --retry 5 --retry-delay 5 "$SourceLLVM" -o llvm.zip || wget -c "$SourceLLVM" -O llvm.zip
 
-          # 如果 llvm.zip 为空或者小于 1MB（可能是 404 页面），立即失败
+          # 确保 LLVM ZIP 文件正确
           FILE_SIZE=$(stat -c%s llvm.zip)
           if [[ $FILE_SIZE -lt 100000 ]]; then
               echo "Error: llvm.zip is too small! Possible 404 error!"
@@ -61,7 +58,6 @@ jobs:
               exit 1
           fi
 
-          # 确保 llvm.zip 是合法 ZIP 文件
           if ! unzip -t llvm.zip &>/dev/null; then
               echo "Error: llvm.zip is not a valid ZIP file!"
               file llvm.zip
