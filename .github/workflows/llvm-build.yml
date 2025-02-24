@@ -24,6 +24,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          echo "Installing dependencies..."
           sudo apt update
           sudo apt install -y build-essential cmake ninja-build unzip curl wget python3 git
           if [[ "${{ matrix.arch }}" == "aarch64" ]]; then
@@ -32,6 +33,7 @@ jobs:
 
       - name: Set Environment Variables
         run: |
+          echo "Setting up environment variables..."
           echo "MajorLLVMVer=16" >> $GITHUB_ENV
           echo "LLVMVer=16.0.4" >> $GITHUB_ENV
           echo "LLVMHome=llvm-${MajorLLVMVer}.0.0.obj" >> $GITHUB_ENV
@@ -39,38 +41,20 @@ jobs:
           echo "SVFHOME=$PWD" >> $GITHUB_ENV
           echo "jobs=$(nproc)" >> $GITHUB_ENV
 
-      - name: Download and Build LLVM
+      - name: Download and Extract LLVM
         run: |
-          set -e  # 遇到错误立即退出
+          set -e
+          echo "Downloading LLVM source..."
+          if [[ ! -f "llvm.zip" ]]; then
+              curl -L "$SourceLLVM" -o llvm.zip || wget -c "$SourceLLVM" -O llvm.zip
+          fi
 
-          LLVMHome="llvm-${MajorLLVMVer}.0.0.obj"
-          SourceLLVM="https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-${LLVMVer}.zip"
+          echo "Extracting LLVM source (silent mode)..."
+          rm -rf llvm-source
+          mkdir llvm-source
+          unzip -q llvm.zip -d llvm-source
 
-          function download_and_extract {
-              local url="$1"
-              local output="$2"
-              local folder="$3"
-
-              if [[ -f "$output" ]]; then
-                  echo "File $output exists, skipping download..."
-              else
-                  echo "Downloading $url..."
-                  curl -L "$url" -o "$output" || wget -c "$url" -O "$output"
-              fi
-
-              if [[ -d "$folder" ]]; then
-                  echo "Folder $folder exists, skipping extraction..."
-              else
-                  echo "Extracting $output..."
-                  mkdir -p "$folder"
-                  unzip "$output" -d "$folder"
-              fi
-          }
-
-          echo "Downloading and extracting LLVM source..."
-          download_and_extract "$SourceLLVM" "llvm.zip" "llvm-source"
-
-          # 统一 LLVM 目录格式，确保路径正确
+          echo "Finding LLVM source directory..."
           LLVM_SRC_DIR=$(find llvm-source -maxdepth 1 -type d -name "llvm-project-*")
           if [[ -z "$LLVM_SRC_DIR" ]]; then
               echo "Error: LLVM source directory not found!"
@@ -78,29 +62,42 @@ jobs:
               exit 1
           fi
 
-          # **重命名目录**，去掉 `llvmorg-`，保证 CMake 识别
           EXPECTED_DIR="llvm-source/llvm-project-${LLVMVer}"
-          mv "$LLVM_SRC_DIR" "$EXPECTED_DIR"
+          if [[ "$LLVM_SRC_DIR" != "$EXPECTED_DIR" ]]; then
+              echo "Renaming LLVM source directory..."
+              mv "$LLVM_SRC_DIR" "$EXPECTED_DIR"
+          fi
 
-          # 确保 CMake 能找到 llvm 目录
           if [[ ! -d "$EXPECTED_DIR/llvm" ]]; then
               echo "Error: LLVM source directory '$EXPECTED_DIR/llvm' not found!"
               ls -R "$EXPECTED_DIR"
               exit 1
           fi
 
-          echo "LLVM source directory: $EXPECTED_DIR"
+          echo "LLVM source directory is ready: $EXPECTED_DIR"
+
+      - name: Build LLVM
+        run: |
+          set -e
+          EXPECTED_DIR="$PWD/llvm-source/llvm-project-${LLVMVer}"
 
           echo "Building LLVM..."
           mkdir -p llvm-build
           cd llvm-build
+          
+          if [[ ! -d "$EXPECTED_DIR/llvm" ]]; then
+              echo "FATAL ERROR: LLVM source directory '$EXPECTED_DIR/llvm' not found!"
+              ls -R "$EXPECTED_DIR"
+              exit 1
+          fi
+
           cmake -G Ninja -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX="$SVFHOME/$LLVMHome" \
                 -DLLVM_ENABLE_PROJECTS="clang" \
                 -DLLVM_ENABLE_RTTI=ON \
                 -DBUILD_SHARED_LIBS=ON \
                 -DLLVM_TARGETS_TO_BUILD="X86;AArch64" \
-                "$PWD/$EXPECTED_DIR/llvm"  # **这里确保路径正确**
+                "$EXPECTED_DIR/llvm"
           cmake --build . --parallel ${jobs}
           cmake --install .
 
@@ -109,6 +106,7 @@ jobs:
 
       - name: Package LLVM
         run: |
+          echo "Packaging LLVM..."
           OS_VERSION=$(lsb_release -rs)
           ARCH=${{ matrix.arch }}
           ZIP_NAME="llvm-16-ubuntu${OS_VERSION}-${ARCH}.zip"
