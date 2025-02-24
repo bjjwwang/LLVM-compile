@@ -77,17 +77,19 @@ jobs:
               ls -R llvm-source
               exit 1
           fi
-          LLVM_SRC_DIR=$(basename "$LLVM_SRC_DIR") # 只保留文件夹名
-          LLVM_SRC_DIR="llvm-source/$LLVM_SRC_DIR" # 确保路径一致
+
+          # **重命名目录**，去掉 `llvmorg-`，保证 CMake 识别
+          EXPECTED_DIR="llvm-source/llvm-project-${LLVMVer}"
+          mv "$LLVM_SRC_DIR" "$EXPECTED_DIR"
 
           # 确保 CMake 能找到 llvm 目录
-          if [[ ! -d "$LLVM_SRC_DIR/llvm" ]]; then
-              echo "Error: LLVM source directory '$LLVM_SRC_DIR/llvm' not found!"
-              ls -R "$LLVM_SRC_DIR"
+          if [[ ! -d "$EXPECTED_DIR/llvm" ]]; then
+              echo "Error: LLVM source directory '$EXPECTED_DIR/llvm' not found!"
+              ls -R "$EXPECTED_DIR"
               exit 1
           fi
 
-          echo "LLVM source directory: $LLVM_SRC_DIR"
+          echo "LLVM source directory: $EXPECTED_DIR"
 
           echo "Building LLVM..."
           mkdir -p llvm-build
@@ -98,7 +100,7 @@ jobs:
                 -DLLVM_ENABLE_RTTI=ON \
                 -DBUILD_SHARED_LIBS=ON \
                 -DLLVM_TARGETS_TO_BUILD="X86;AArch64" \
-                "$PWD/$LLVM_SRC_DIR/llvm"  # **这里确保路径正确**
+                "$PWD/$EXPECTED_DIR/llvm"  # **这里确保路径正确**
           cmake --build . --parallel ${jobs}
           cmake --install .
 
