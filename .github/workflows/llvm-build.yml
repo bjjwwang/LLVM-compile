@@ -17,12 +17,20 @@ jobs:
 
       - name: Compile LLVM
         run: |
-          # 你的编译命令
           make llvm-install
-          tar -czf llvm-install-arm64.tar.gz llvm-install
+          tar -czf llvm-install-arm64.tar.gz llvm-install/
+
+      - name: Debug artifact location
+        run: find $GITHUB_WORKSPACE -name "llvm-install-arm64.tar.gz" -exec ls -lah {} \;
+
+      - name: List all files in workspace
+        run: ls -lahR $GITHUB_WORKSPACE
+
+      - name: Move artifact to workspace
+        run: mv $(find $GITHUB_WORKSPACE -name "llvm-install-arm64.tar.gz") $GITHUB_WORKSPACE/ || echo "File not found"
 
       - name: Upload LLVM artifact
         uses: actions/upload-artifact@v4
         with:
           name: llvm-install-arm64
-          path: llvm-install-arm64.tar.gz
+          path: $GITHUB_WORKSPACE/llvm-install-arm64.tar.gz
