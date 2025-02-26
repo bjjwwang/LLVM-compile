@@ -10,27 +10,65 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [ubuntu-24.04-arm]
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Compile LLVM
+      - name: Install Dependencies
         run: |
-          make llvm-install
-          tar -czf llvm-install-arm64.tar.gz llvm-install/
+          sudo apt update
+          sudo apt install -y build-essential cmake ninja-build python3 wget unzip
 
-      - name: Debug artifact location
-        run: find $GITHUB_WORKSPACE -name "llvm-install-arm64.tar.gz" -exec ls -lah {} \;
+      - name: Download and Extract LLVM
+        run: |
+          wget "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-16.0.4.zip"
+          unzip llvmorg-16.0.4.zip
+          mv llvm-project-llvmorg-16.0.4 $GITHUB_WORKSPACE/llvm-project
+          ls -lh
 
-      - name: List all files in workspace
-        run: ls -lahR $GITHUB_WORKSPACE
+      - name: Configure LLVM Build
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/llvm-project/llvm-build
+          cd $GITHUB_WORKSPACE/llvm-project/llvm-build
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/llvm-install \
+            -DLLVM_ENABLE_PROJECTS="clang" \
+            -DLLVM_ENABLE_RTTI=ON \
+            -DLLVM_BUILD_LLVM_DYLIB=ON \
+            -DLLVM_LINK_LLVM_DYLIB=ON \
+            ../llvm
+          
+      - name: Build LLVM
+        run: |
+          cd $GITHUB_WORKSPACE/llvm-project/llvm-build
+          ninja -j$(nproc)
+
+      - name: Install LLVM
+        run: |
+          cd $GITHUB_WORKSPACE/llvm-project/llvm-build
+          ninja install
+
+      - name: Package Install Directory
+        run: |
+          cd $GITHUB_WORKSPACE
+          tar -czvf llvm-install-arm64.tar.gz llvm-install
+          ls -lh llvm-install-arm64.tar.gz
+          find $GITHUB_WORKSPACE -name "llvm-install-arm64.tar.gz" -exec ls -lah {} \;
 
       - name: Move artifact to workspace
-        run: mv $(find $GITHUB_WORKSPACE -name "llvm-install-arm64.tar.gz") $GITHUB_WORKSPACE/ || echo "File not found"
+        run: mv $GITHUB_WORKSPACE/llvm-install-arm64.tar.gz .
 
-      - name: Upload LLVM artifact
+      - name: Debug upload-artifact
+        run: |
+          echo "Current Directory: $(pwd)"
+          ls -lh
+          ls -lh $GITHUB_WORKSPACE
+          ls -lh ./llvm-install-arm64.tar.gz
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: llvm-install-arm64
-          path: $GITHUB_WORKSPACE/llvm-install-arm64.tar.gz
+          path: ./llvm-install-arm64.tar.gz
