@@ -1,4 +1,4 @@
-name: Build LLVM with Docker
+name: Build LLVM on Ubuntu 24.04 ARM
 
 on:
   push:
@@ -7,55 +7,57 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
   build:
-    name: Build LLVM on ${{ matrix.arch }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [x86_64, aarch64]
-
+    runs-on: [ubuntu-24.04-arm]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up QEMU for Docker
-        uses: docker/setup-qemu-action@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Build LLVM using Docker
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false
-          platforms: linux/${{ matrix.arch }}
-          load: true  # 关键修复，确保 buildx 结果可用
-          tags: llvm-build:${{ matrix.arch }}
-
-      - name: Verify Docker Image Exists
+      - name: Install Dependencies
         run: |
-          echo "Checking if llvm-build:${{ matrix.arch }} exists..."
-          docker images
-          if ! docker images | grep -q "llvm-build"; then
-              echo "Error: llvm-build:${{ matrix.arch }} was not built!"
-              exit 1
-          fi
+          sudo apt update
+          sudo apt install -y build-essential cmake ninja-build python3 wget unzip
 
-      - name: Extract LLVM Build Output
+      - name: Download and Extract LLVM
         run: |
-          docker create --name llvm-container llvm-build:${{ matrix.arch }}
-          docker cp llvm-container:/output llvm-16-${{ matrix.arch }}
-          docker rm llvm-container
-          zip -r llvm-16-${{ matrix.arch }}.zip llvm-16-${{ matrix.arch }}
+          wget "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-16.0.4.zip"
+          unzip llvmorg-16.0.4.zip
+          mv llvm-project-llvmorg-16.0.4 $GITHUB_WORKSPACE/llvm-project
+          ls -lh
 
-      - name: Upload LLVM Artifact
+      - name: Configure LLVM Build
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/llvm-project/llvm-build
+          cd $GITHUB_WORKSPACE/llvm-project/llvm-build
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/llvm-install \
+            -DLLVM_ENABLE_PROJECTS="clang" \
+            -DLLVM_ENABLE_RTTI=ON \
+            -DLLVM_BUILD_LLVM_DYLIB=ON \
+            -DLLVM_LINK_LLVM_DYLIB=ON \
+            ../llvm
+          
+      - name: Build LLVM
+        run: |
+          cd $GITHUB_WORKSPACE/llvm-project/llvm-build
+          ninja -j$(nproc)
+
+      - name: Install LLVM
+        run: |
+          cd $GITHUB_WORKSPACE/llvm-project/llvm-build
+          ninja install
+
+      - name: Package Install Directory
+        run: |
+          cd $GITHUB_WORKSPACE
+          tar -czvf llvm-install-arm64.tar.gz llvm-install
+          ls -lh
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llvm-16-${{ matrix.arch }}.zip
-          path: llvm-16-${{ matrix.arch }}.zip
-          retention-days: 7
+          name: llvm-install-arm64
+          path: $GITHUB_WORKSPACE/llvm-install-arm64.tar.gz
