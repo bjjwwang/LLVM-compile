@@ -1,4 +1,4 @@
-name: Build LLVM on Ubuntu 24.04 ARM
+name: Build LLVM on Ubuntu 24.04 AMD
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: [ubuntu-24.04-arm]
+    runs-on: [ubuntu-24.04]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -53,17 +53,17 @@ jobs:
       - name: Package Install Directory
         run: |
           cd $GITHUB_WORKSPACE
-          tar -czvf llvm-install-arm64.tar.gz llvm-install
-          ls -lh llvm-install-arm64.tar.gz
-          find $GITHUB_WORKSPACE -name "llvm-install-arm64.tar.gz" -exec ls -lah {} \;
+          tar -czvf llvm-install-amd64.tar.gz llvm-install
+          ls -lh llvm-install-amd64.tar.gz
+          find $GITHUB_WORKSPACE -name "llvm-install-amd64.tar.gz" -exec ls -lah {} \;
 
       - name: Move artifact to workspace
         run: |
-          if [ -f "./llvm-install-arm64.tar.gz" ]; then
+          if [ -f "./llvm-install-amd64.tar.gz" ]; then
             echo "File already exists in workspace, skipping move."
           else
             echo "Moving artifact to workspace..."
-            cp $GITHUB_WORKSPACE/llvm-install-arm64.tar.gz .
+            cp $GITHUB_WORKSPACE/llvm-install-amd64.tar.gz .
           fi
 
       - name: Debug upload-artifact
@@ -71,10 +71,10 @@ jobs:
           echo "Current Directory: $(pwd)"
           ls -lh
           ls -lh $GITHUB_WORKSPACE
-          ls -lh ./llvm-install-arm64.tar.gz
+          ls -lh ./llvm-install-amd64.tar.gz
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llvm-install-arm64
-          path: ./llvm-install-arm64.tar.gz
+          name: llvm-install-amd64
+          path: ./llvm-install-amd64.tar.gz
