@@ -1,0 +1,77 @@
+name: Build LLVM 18 on Ubuntu 22.04 ARM
+
+on:
+  push:
+    branches:
+      - llvm18-arm-ubuntu22
+
+jobs:
+  build:
+    runs-on: [ubuntu-22.04-arm]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential cmake ninja-build python3 wget unzip
+
+      - name: Download and Extract LLVM
+        run: |
+          wget "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-18.0.0.zip" # Placeholder URL
+          unzip llvmorg-18.0.0.zip
+          mv llvm-project-llvmorg-18.0.0 $GITHUB_WORKSPACE/llvm-project
+          ls -lh
+
+      - name: Configure LLVM Build
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/llvm-project/llvm-build
+          cd $GITHUB_WORKSPACE/llvm-project/llvm-build
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/llvm-install \
+            -DLLVM_ENABLE_PROJECTS="clang" \
+            -DLLVM_ENABLE_RTTI=ON \
+            -DLLVM_BUILD_LLVM_DYLIB=ON \
+            -DLLVM_LINK_LLVM_DYLIB=ON \
+            ../llvm
+          
+      - name: Build LLVM
+        run: |
+          cd $GITHUB_WORKSPACE/llvm-project/llvm-build
+          ninja -j$(nproc)
+
+      - name: Install LLVM
+        run: |
+          cd $GITHUB_WORKSPACE/llvm-project/llvm-build
+          ninja install
+
+      - name: Package Install Directory
+        run: |
+          cd $GITHUB_WORKSPACE
+          tar -czvf llvm-install-arm.tar.gz llvm-install
+          ls -lh llvm-install-arm.tar.gz
+          find $GITHUB_WORKSPACE -name "llvm-install-arm.tar.gz" -exec ls -lah {} \;
+
+      - name: Move artifact to workspace
+        run: |
+          if [ -f "./llvm-install-arm.tar.gz" ]; then
+            echo "File already exists in workspace, skipping move."
+          else
+            echo "Moving artifact to workspace..."
+            cp $GITHUB_WORKSPACE/llvm-install-arm.tar.gz .
+          fi
+
+      - name: Debug upload-artifact
+        run: |
+          echo "Current Directory: $(pwd)"
+          ls -lh
+          ls -lh $GITHUB_WORKSPACE
+          ls -lh ./llvm-install-arm.tar.gz
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llvm-install-arm
+          path: ./llvm-install-arm.tar.gz 
