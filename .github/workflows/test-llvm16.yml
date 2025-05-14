@@ -1,0 +1,48 @@
+name: Download and Extract LLVM Prebuilt (Ubuntu 16.04)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  download-llvm:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ubuntu:16.04
+
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y wget tar grep file
+
+      - name: Download and verify LLVM archive
+        run: |
+          mkdir -p /root/llvm
+          cd /root/llvm
+
+          echo "➡️ Downloading LLVM prebuilt archive..."
+          wget -O llvm.tar.gz https://github.com/bjjwwang/SVF-LLVM/releases/download/16.0.0/llvm-16.0.0-ubuntu16-rtti-x86_64.tar
+
+          echo "✅ Download complete. Checking size and type..."
+          du -h llvm.tar.gz
+          file llvm.tar.gz
+          ls -lh llvm.tar.gz
+
+          echo "🛡 Checking for HTML error page (e.g., GitHub 404)..."
+          if grep -q '<html>' llvm.tar.gz; then
+            echo "❌ ERROR: Downloaded file is an HTML page, not a valid archive."
+            head -n 20 llvm.tar.gz
+            exit 1
+          fi
+
+          echo "📦 Previewing tarball contents..."
+          tar -tzf llvm.tar.gz || (echo '❌ ERROR: Tarball corrupt or incomplete.' && exit 1)
+
+          echo "🔧 Extracting archive..."
+          tar -xzf llvm.tar.gz
+          echo "✅ Extraction done."
+
+      - name: List extracted content
+        run: |
+          ls -alh /root/llvm
