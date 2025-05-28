@@ -19,7 +19,7 @@ jobs:
 
     - name: Clone LLVM source
       run: |
-        git clone --depth=1 https://github.com/llvm/llvm-project.git
+        git clone --depth=1 --branch llvmorg-16.0.6 https://github.com/llvm/llvm-project.git
         dir llvm-project
 
     - name: Configure LLVM with CMake
@@ -32,7 +32,9 @@ jobs:
           -DLLVM_ENABLE_PROJECTS="clang" `
           -DLLVM_TARGETS_TO_BUILD=host `
           -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\llvm-install" `
-          -DLLVM_ENABLE_ASSERTIONS=ON
+          -DLLVM_ENABLE_ASSERTIONS=ON `
+          -DLLVM_ENABLE_RTTI=ON `
+          -DLLVM_ENABLE_EH=ON
 
     - name: Build and install LLVM
       run: |
