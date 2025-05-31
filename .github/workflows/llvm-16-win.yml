@@ -17,6 +17,9 @@ jobs:
         choco install ninja --yes
         choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' --yes
 
+    - name: Set up MSVC Developer Command Prompt
+      uses: ilammy/msvc-dev-cmd@v1
+
     - name: Clone LLVM source
       run: |
         git clone --depth=1 --branch llvmorg-16.0.6 https://github.com/llvm/llvm-project.git
@@ -26,16 +29,16 @@ jobs:
       run: |
         mkdir llvm-build
         cd llvm-build
-        cmake ../llvm-project/llvm `
-          -G Ninja `
-          -DCMAKE_BUILD_TYPE=Release `
-          -DLLVM_ENABLE_PROJECTS="clang" `
-          -DLLVM_TARGETS_TO_BUILD=host `
-          -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\llvm-install" `
-          -DLLVM_ENABLE_ASSERTIONS=ON `
-          -DLLVM_ENABLE_RTTI=ON `
-          -DLLVM_ENABLE_EH=ON `
-          -DLLVM_BUILD_LLVM_DYLIB=ON `
+        cmake ../llvm-project/llvm ^
+          -G "Ninja" ^
+          -DCMAKE_BUILD_TYPE=Release ^
+          -DLLVM_ENABLE_PROJECTS="clang" ^
+          -DLLVM_TARGETS_TO_BUILD=host ^
+          -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\\llvm-install" ^
+          -DLLVM_ENABLE_ASSERTIONS=ON ^
+          -DLLVM_ENABLE_RTTI=ON ^
+          -DLLVM_ENABLE_EH=ON ^
+          -DLLVM_BUILD_LLVM_DYLIB=ON ^
           -DLLVM_LINK_LLVM_DYLIB=ON
 
     - name: Build and install LLVM
@@ -45,7 +48,7 @@ jobs:
 
     - name: Verify llvm-config.cmake exists
       run: |
-        if (Test-Path "${{ github.workspace }}\llvm-install\lib\cmake\llvm\llvm-config.cmake") {
+        if (Test-Path "${{ github.workspace }}\\llvm-install\\lib\\cmake\\llvm\\llvm-config.cmake") {
           Write-Host "✅ llvm-config.cmake was generated."
         } else {
           Write-Error "❌ llvm-config.cmake was not found."
@@ -54,7 +57,7 @@ jobs:
 
     - name: Check for libLLVM.dll
       run: |
-        if (Test-Path "${{ github.workspace }}\llvm-install\bin\libLLVM.dll") {
+        if (Test-Path "${{ github.workspace }}\\llvm-install\\bin\\libLLVM.dll") {
           Write-Host "✅ libLLVM.dll was generated."
         } else {
           Write-Error "❌ libLLVM.dll was not found."
