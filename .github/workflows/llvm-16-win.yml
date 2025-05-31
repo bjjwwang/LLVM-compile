@@ -22,7 +22,7 @@ jobs:
         git clone --depth=1 --branch llvmorg-16.0.6 https://github.com/llvm/llvm-project.git
         dir llvm-project
 
-    - name: Configure LLVM with CMake
+    - name: Configure LLVM with CMake (Build DLL)
       run: |
         mkdir llvm-build
         cd llvm-build
@@ -34,7 +34,10 @@ jobs:
           -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\llvm-install" `
           -DLLVM_ENABLE_ASSERTIONS=ON `
           -DLLVM_ENABLE_RTTI=ON `
-          -DLLVM_ENABLE_EH=ON
+          -DLLVM_ENABLE_EH=ON `
+          -DLLVM_BUILD_LLVM_DYLIB=ON `
+          -DLLVM_LINK_LLVM_DYLIB=ON `
+          -DBUILD_SHARED_LIBS=ON
 
     - name: Build and install LLVM
       run: |
@@ -47,6 +50,15 @@ jobs:
           Write-Host "✅ llvm-config.cmake was generated."
         } else {
           Write-Error "❌ llvm-config.cmake was not found."
+          exit 1
+        }
+
+    - name: Check for libLLVM.dll
+      run: |
+        if (Test-Path "${{ github.workspace }}\llvm-install\bin\libLLVM.dll") {
+          Write-Host "✅ libLLVM.dll was generated."
+        } else {
+          Write-Error "❌ libLLVM.dll was not found."
           exit 1
         }
 
