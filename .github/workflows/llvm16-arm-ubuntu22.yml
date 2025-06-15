@@ -1,13 +1,13 @@
-name: Build LLVM 16 on Ubuntu 20.04 AMD
+name: Build LLVM 16 on Ubuntu 22.04 Arm
 
 on:
   push:
     branches:
-      - llvm16-x86-ubuntu20
+      - llvm16-arm-ubuntu22
 
 jobs:
   build:
-    runs-on: [ubuntu-20.04]
+    runs-on: [ubuntu-22.04-arm]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
