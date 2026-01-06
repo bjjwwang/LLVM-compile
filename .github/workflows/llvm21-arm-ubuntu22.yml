@@ -3,7 +3,7 @@ name: Build LLVM 20 on Ubuntu 22.04 ARM
 on:
   push:
     branches:
-      - llvm20-arm-ubuntu22
+      - llvm21-arm-ubuntu22
 
 jobs:
   build:
@@ -20,8 +20,8 @@ jobs:
       - name: Download and Extract LLVM
         run: |
           wget "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-20.1.0.zip"
-          unzip llvmorg-20.1.0.zip
-          mv llvm-project-llvmorg-20.1.0 $GITHUB_WORKSPACE/llvm-project
+          unzip llvmorg-21.1.0.zip
+          mv llvm-project-llvmorg-21.1.0 $GITHUB_WORKSPACE/llvm-project
           ls -lh
 
       - name: Configure LLVM Build
