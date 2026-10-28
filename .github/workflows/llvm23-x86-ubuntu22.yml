@@ -1,9 +1,9 @@
-name: Build LLVM 22 on Ubuntu 22.04 AMD
+name: Build LLVM 23 on Ubuntu 22.04 AMD
 
 on:
   push:
     branches:
-      - llvm22-x86-ubuntu22
+      - llvm23-x86-ubuntu22
 
 jobs:
   build:
@@ -19,9 +19,9 @@ jobs:
 
       - name: Download and Extract LLVM
         run: |
-          wget "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-22.1.0.zip"
-          unzip llvmorg-22.1.0.zip
-          mv llvm-project-llvmorg-22.1.0 $GITHUB_WORKSPACE/llvm-project
+          wget "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-23.1.0.zip"
+          unzip llvmorg-23.1.0.zip
+          mv llvm-project-llvmorg-23.1.0 $GITHUB_WORKSPACE/llvm-project
           ls -lh
 
       - name: Configure LLVM Build
