@@ -1,16 +1,22 @@
-name: Build LLVM 23 on Ubuntu 22.04 AMD
+name: Build LLVM 23 on Ubuntu 26.04 x86_64
 
 on:
   push:
     branches:
-      - llvm23-x86-ubuntu22
+      - llvm23-x86-ubuntu26
 
 jobs:
   build:
-    runs-on: [ubuntu-22.04]
+    runs-on: [ubuntu-26.04]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Verify Ubuntu 26.04 runner
+        run: |
+          . /etc/os-release
+          test "$VERSION_ID" = "26.04"
+          uname -m
 
       - name: Install Dependencies
         run: |
@@ -73,5 +79,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llvm-install-amd64
+          name: llvm23-ubuntu26-amd64
           path: ./llvm-install-amd64.tar.gz 
