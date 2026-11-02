@@ -1,16 +1,22 @@
-name: Build LLVM 22 on Ubuntu 22.04 ARM
+name: Build LLVM 22 on Ubuntu 26.04 ARM64
 
 on:
   push:
     branches:
-      - llvm22-arm-ubuntu22
+      - llvm22-arm-ubuntu26
 
 jobs:
   build:
-    runs-on: [ubuntu-22.04-arm]
+    runs-on: [ubuntu-26.04-arm]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Verify Ubuntu 26.04 runner
+        run: |
+          . /etc/os-release
+          test "$VERSION_ID" = "26.04"
+          uname -m
 
       - name: Install Dependencies
         run: |
@@ -73,5 +79,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llvm-install-arm64
+          name: llvm22-ubuntu26-arm64
           path: ./llvm-install-arm64.tar.gz 
